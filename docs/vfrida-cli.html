@@ -364,11 +364,12 @@
 </div>
 
 <h2 id="cli">命令行</h2>
-<pre><code>python3 tools/vfrida -U -f com.example.app -l tools/test_js_api.js
-python3 tools/vfrida -U -n com.example.app -l tools/test_native_hook.js
-python3 tools/vfrida -D &lt;serial&gt; -p 1234 -e 'console.log(1)'
-python3 tools/vfrida -H 127.0.0.1:2408 -n com.android.vfrida --list
-python3 tools/vfrida-ps -U</code></pre>
+<p>先把 <code>tools</code> 加进 PATH：<code>export PATH="$PWD/tools:$PATH"</code>（或写进 <code>~/.zshrc</code>）。下面的命令都在仓库根目录执行。</p>
+<pre><code>vfrida -U -f com.example.app -l tools/test_js_api.js
+vfrida -U -n com.example.app -l tools/test_native_hook.js
+vfrida -D &lt;serial&gt; -p 1234 -e 'console.log(1)'
+vfrida -H 127.0.0.1:2408 -n com.android.vfrida --list
+vfrida-ps -U</code></pre>
 <p><code>-l</code> 可以重复，文件按顺序拼成一份源码。<code>-e</code> 追加在文件后面。<code>--call 方法名 --args '["a",1]'</code> 在源码发出之后调用，<code>--args</code> 必须是 JSON 数组，和 <code>--call</code> 按顺序配对。客户端开了 TCP keepalive。spawn 的连接超时是 45 秒，attach 是 15 秒。连上之后 <code>follow</code> 会一直打印 <code>LOG</code>，直到对端关掉或收到 <code>EXIT</code>。</p>
 
 </main>

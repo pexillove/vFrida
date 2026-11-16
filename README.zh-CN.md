@@ -1,7 +1,8 @@
 [English](README.md)
 
-
 # vFrida
+
+开源地址：https://github.com/vFrida/vFrida
 
 `tools/vfrida` 是命令行客户端。它把一段脚本送进 vFrida 宿主，或送进某一个分身，再把日志打回来。参数对齐 Frida 命令行：`-f` 拉起，`-n` 或 `-p` 挂上，`-l` 加载脚本。
 
@@ -13,26 +14,28 @@ vFrida 本身是一个 Android 应用分身沙箱。宿主包名 `com.android.vf
 
 ## 拉起、挂接、列表
 
-仓库根目录，只插着一台设备：
+先把 `tools/` 加进 PATH（也可写进 `~/.zshrc`），然后在仓库根目录、只插一台设备：
 
 ```bash
+export PATH="$PWD/tools:$PATH"
+
 # 停掉 user 0 上的分身，再启动、注入，然后放行
-python3 tools/vfrida -U -f com.example.app -l tools/test_js_api.js
+vfrida -U -f com.example.app -l tools/test_js_api.js
 
 # 挂到已经在跑的分身
-python3 tools/vfrida -U -n com.example.app -l tools/test_native_hook.js
+vfrida -U -n com.example.app -l tools/test_native_hook.js
 
 # 按 pid 挂，宿主界面进程 com.android.vfrida 也可以
-python3 tools/vfrida -U -p 12345 -l tools/test_js_api.js
+vfrida -U -p 12345 -l tools/test_js_api.js
 
 # 不写文件，直接塞一行
-python3 tools/vfrida -U -n com.example.app -e 'console.log("hi")'
+vfrida -U -n com.example.app -e 'console.log("hi")'
 
 # 已经注册的进程，JSON
-python3 tools/vfrida -U --list
+vfrida -U --list
 
 # 同一份列表，打成表
-python3 tools/vfrida-ps -U
+vfrida-ps -U
 ```
 
 `-f` 是拉起。客户端先把脚本送进去，再送 `UNLOCK`。分身在启动路径上等到这一帧，所以脚本会赶在 `Application.onCreate` 之前就位。`-f` 只用 user 0。
@@ -42,13 +45,13 @@ python3 tools/vfrida-ps -U
 多台手机：
 
 ```bash
-python3 tools/vfrida -D <serial> -n com.example.app -l tools/test_js_api.js
+vfrida -D <serial> -n com.example.app -l tools/test_js_api.js
 ```
 
 端口已经转好了，就不用 adb：
 
 ```bash
-python3 tools/vfrida -H 127.0.0.1:2408 -n com.example.app -l tools/test_js_api.js
+vfrida -H 127.0.0.1:2408 -n com.example.app -l tools/test_js_api.js
 ```
 
 `-H`、`-U`、`-D` 选连接，只写其中一个。`-f`、`-n`、`-p` 也只写其中一个。
@@ -72,8 +75,10 @@ python3 tools/vfrida -H 127.0.0.1:2408 -n com.example.app -l tools/test_js_api.j
 脚本加载之后可以调导出。`--args` 是 JSON 数组，和对应的 `--call` 对齐：
 
 ```bash
-python3 tools/vfrida -U -n com.example.app -l tools/test_rpc.js --call ping --args '["hi"]'
+vfrida -U -n com.example.app -l tools/test_rpc.js --call ping --args '["hi"]'
 ```
 
 这行会打出 `pong hi`，然后继续等日志。
 
+
+项目概览与模块说明见 [ABOUT.md](ABOUT.md)。

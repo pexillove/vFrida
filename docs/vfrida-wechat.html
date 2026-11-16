@@ -163,11 +163,12 @@
 <p><code>NativeCore.onSpindleScript</code> 把字节按 UTF-8 转成字符串。如果有人调用过 <code>setScriptHandler</code>，就在当前线程回调 <code>onScript</code>。没有 handler 时，只打一条日志。</p>
 <blockquote><p>脚本到达进程后，<code>NativeCore.onSpindleScript</code> 先交给已注册的 <code>ScriptHandler</code>，再调用 <code>spindleRunJs</code>。arm64 上由 QuickJS 执行，提供 <code>Interceptor</code>、<code>Stalker</code>、<code>Java</code>、<code>Memory</code>、<code>Process</code> 和 <code>console</code>。<code>console.log</code> 经 <code>onSpindleLog</code> 回到 <code>:black</code>，再写进开发机的 TCP。RPC 调用 <code>rpc.exports</code>。工程只编译 arm64，所以发布的 APK 带这个运行时；非 arm64 的构建会回 <code>{"ok":false,"e":"js runtime is not in vfrida"}</code>。</p></blockquote>
 <h2>命令行</h2>
-<pre>python3 tools/vfrida -U -f com.example.app -l tools/test_js_api.js
-python3 tools/vfrida -U -n com.example.app -l tools/test_native_hook.js
-python3 tools/vfrida -D &lt;serial&gt; -p 1234 -e 'console.log(1)'
-python3 tools/vfrida -H 127.0.0.1:2408 -n com.android.vfrida --list
-python3 tools/vfrida-ps -U</pre>
+<p>先把 <code>tools</code> 加进 PATH：<code>export PATH="$PWD/tools:$PATH"</code>（或写进 <code>~/.zshrc</code>）。下面的命令都在仓库根目录执行。</p>
+<pre>vfrida -U -f com.example.app -l tools/test_js_api.js
+vfrida -U -n com.example.app -l tools/test_native_hook.js
+vfrida -D &lt;serial&gt; -p 1234 -e 'console.log(1)'
+vfrida -H 127.0.0.1:2408 -n com.android.vfrida --list
+vfrida-ps -U</pre>
 <p><code>-l</code> 可以重复，文件按顺序拼成一份源码。<code>-e</code> 追加在文件后面。<code>--call 方法名 --args '["a",1]'</code> 在源码发出之后调用，<code>--args</code> 必须是 JSON 数组，和 <code>--call</code> 按顺序配对。客户端开了 TCP keepalive。spawn 的连接超时是 45 秒，attach 是 15 秒。连上之后 <code>follow</code> 会一直打印 <code>LOG</code>，直到对端关掉或收到 <code>EXIT</code>。</p>
 <p>依据 <code>core/src/main/cpp/hook/spindle_server.cpp</code>、<code>BSpindleService</code> 和 <code>tools/vfrida</code>。</p>
 </article>
