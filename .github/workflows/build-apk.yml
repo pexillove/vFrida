@@ -1,0 +1,79 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  schedule:
+    # 03:00 Asia/Shanghai (UTC+8)
+    - cron: "0 19 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          log-accepted-android-sdk-licenses: false
+          packages: >-
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+            ndk;25.2.9519653
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Tag this commit
+        run: |
+          number=$(git rev-list --count HEAD)
+          tag="V${number}"
+          echo "tag=${tag}" >> "$GITHUB_ENV"
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null; then
+            git fetch origin "refs/tags/${tag}:refs/tags/${tag}"
+          else
+            git tag "$tag"
+            git push origin "refs/tags/${tag}"
+          fi
+
+      - name: Build release APK
+        run: chmod +x ./gradlew && ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk=$(ls app/build/outputs/apk/release/*.apk)
+          title="$tag"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$tag" "$apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --latest \
+              --generate-notes
+          fi

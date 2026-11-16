@@ -1,0 +1,43 @@
+
+plugins {
+alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.jetbrains.kotlin.android) apply false
+    alias(libs.plugins.android.library) apply false
+}
+
+def gitExecutable = ['/usr/bin/git', '/opt/homebrew/bin/git', '/usr/local/bin/git']
+        .find { new File(it).canExecute() } ?: 'git'
+
+def gitOutput = { List<String> args ->
+    def pb = new ProcessBuilder([gitExecutable, '-C', rootDir.absolutePath] + args)
+    pb.redirectErrorStream(true)
+    def proc = pb.start()
+    def text = proc.inputStream.getText('UTF-8').trim()
+    proc.waitFor()
+    return text
+}
+
+def gitVersionCode = {
+    def n = gitOutput(['rev-list', '--count', 'HEAD'])
+    return n.isInteger() ? n.toInteger() : 1
+}()
+
+def gitVersionName = {
+    def desc = gitOutput(['describe', '--tags', '--always'])
+    if (desc.isEmpty()) desc = "dev"
+    return "${gitVersionCode} - ${desc}".toString()
+}()
+
+logger.lifecycle("App version: ${gitVersionCode} (${gitVersionName})")
+
+ext {
+    compileSdkVersion = 35
+    targetSdkVersion = 28 
+
+    minSdk = 21
+    versionCode = gitVersionCode
+    versionName = gitVersionName
+    xVersion = '1.1.0'
+    // 6.2 requires compileSdk 37; AGP 8.13.x tops out at 36.
+    hiddenApiBypass = '6.1'
+}

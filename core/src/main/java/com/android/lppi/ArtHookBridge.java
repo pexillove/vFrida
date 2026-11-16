@@ -1,0 +1,110 @@
+package com.android.lppi;
+
+import com.android.lppi.XC_MethodHook;
+import com.android.lppi.XposedBridge;
+import com.android.lppi.wrapper.HookWrapper;
+import com.android.lppi.xposedcompat.XposedCompat;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Entry used by the native Java.hook path. Hook installation goes through the
+ * local beer module (SandHook / XposedBridge) instead of javax.security.Beer.
+ */
+public final class ArtHookBridge {
+    private static final Map<Member, XC_MethodHook> CALLBACKS = new ConcurrentHashMap<>();
+
+    private ArtHookBridge() {
+    }
+
+    public static boolean init() {
+        try {
+            XposedCompat.useInternalStub = false;
+            SandHook.class.getName();
+            return true;
+        } catch (Throwable t) {
+            android.util.Log.e("SPDL", "sandhook init", t);
+            return false;
+        }
+    }
+
+    public static Method beer(Object hookObj, Member target, Method callback) throws Throwable {
+        if (hookObj == null || target == null || callback == null) {
+            throw new IllegalArgumentException("null hook");
+        }
+        final boolean isStatic = Modifier.isStatic(target.getModifiers());
+        XC_MethodHook xc = new XC_MethodHook() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                Object[] src = param.args == null ? new Object[0] : param.args;
+                Object[] packed;
+                if (isStatic) {
+                    packed = src;
+                } else {
+                    packed = new Object[src.length + 1];
+                    packed[0] = param.thisObject;
+                    System.arraycopy(src, 0, packed, 1, src.length);
+                }
+                try {
+                    Object result = callback.invoke(hookObj, new Object[]{packed});
+                    param.setResult(result);
+                } catch (InvocationTargetException e) {
+                    Throwable cause = e.getCause() != null ? e.getCause() : e;
+                    param.setThrowable(cause);
+                }
+            }
+        };
+        XposedBridge.hookMethod(target, xc);
+        HookWrapper.HookEntity entity = SandHook.globalHookEntityMap.get(target);
+        if (entity == null || entity.backup == null) {
+            throw new IllegalStateException("sandhook backup missing for " + target);
+        }
+        CALLBACKS.put(target, xc);
+        return entity.backup;
+    }
+
+    public static boolean unbeer(Member target) {
+        XC_MethodHook xc = CALLBACKS.remove(target);
+        if (xc == null) {
+            return false;
+        }
+        XposedBridge.unhookMethod(target, xc);
+        return true;
+    }
+
+    /**
+     * Original method. SandHook copies the target ArtMethod onto the backup, so an
+     * instance method must be invoked with {@code thiz} as the receiver. Passing
+     * {@code this} as a leading argument makes {@code Method.invoke} throw, and the
+     * hook then replaces the real result with null.
+     */
+    public static Object callOrigin(Member target, Object thiz, Object[] args) throws Throwable {
+        HookWrapper.HookEntity entity = SandHook.globalHookEntityMap.get(target);
+        if (entity == null || entity.backup == null) {
+            throw new IllegalStateException("no backup for " + target);
+        }
+        // DexMaker backups are invoked through reflection here. On Android 7+
+        // that requires ensureDeclareClass, which callOriginMethod only runs
+        // when backupIsStub is false. The generated stub itself is not a stub.
+        return SandHook.callOriginMethod(false, target, entity.backup, thiz, args);
+    }
+
+    public static final class Hook {
+        private final long cookie;
+
+        public Hook(long cookie) {
+            this.cookie = cookie;
+        }
+
+        public Object dispatch(Object[] args) {
+            return nativeDispatch(cookie, args);
+        }
+
+        private static native Object nativeDispatch(long cookie, Object[] args);
+    }
+}

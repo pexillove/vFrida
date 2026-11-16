@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vFrida 如何劫持系统服务</title>
+<style>
+  :root {
+    --surface: #0C0D11;
+    --card: #17191F;
+    --gold: #C6A36A;
+    --chrome: #F3F0E8;
+    --muted: #9A948A;
+    --line: #2C2E34;
+    --ink: #14120E;
+    --page: 820px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--chrome);
+    background: var(--surface);
+    font: 16px/1.7 "PingFang SC", "Noto Sans SC", "Avenir Next", sans-serif;
+  }
+  header, nav, main, footer { max-width: var(--page); margin: 0 auto; }
+  header { padding: 48px 24px 8px; }
+  .mark {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 0.34em;
+  }
+  h1 {
+    margin: 14px 0 0;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+  }
+  h1::after {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 2px;
+    margin-top: 12px;
+    background: var(--gold);
+  }
+  .lede { margin: 14px 0 0; color: var(--muted); font-size: 15px; }
+  nav {
+    padding: 22px 24px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  nav a {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+  nav a:hover { color: var(--chrome); }
+  main { padding: 8px 24px 72px; }
+  h2 {
+    margin: 40px 0 12px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  h3 { margin: 22px 0 8px; font-size: 16px; color: var(--chrome); }
+  p { margin: 0 0 14px; }
+  a { color: var(--gold); }
+  ul, ol { margin: 0 0 14px; padding-left: 1.2em; color: var(--chrome); }
+  li { margin: 0 0 6px; }
+  code, pre {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.86em;
+  }
+  code {
+    background: #1C1F27;
+    color: var(--gold);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--card);
+    color: var(--chrome);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px;
+    overflow: auto;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  th { font-weight: 600; color: var(--gold); font-size: 12px; letter-spacing: 0.06em; }
+  tr:last-child td { border-bottom: 0; }
+  .flow { display: grid; margin: 18px 0 8px; }
+  .step { display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+  .step .n {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    position: relative;
+  }
+  .step:not(:last-child) .n::after {
+    content: "";
+    position: absolute;
+    top: 36px;
+    left: 17px;
+    width: 2px;
+    height: calc(100% + 8px);
+    background: var(--line);
+  }
+  .step .body {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 14px 10px;
+    margin-bottom: 10px;
+  }
+  .who {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 12px 0 18px;
+  }
+  .who article {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .who h3 { margin: 0 0 6px; font-size: 15px; letter-spacing: 0.04em; }
+  .who p { margin: 0; font-size: 14px; color: var(--muted); }
+  .note {
+    background: var(--card);
+    border-left: 2px solid var(--gold);
+    border-radius: 0 16px 16px 0;
+    padding: 12px 14px;
+    margin: 14px 0;
+    color: var(--chrome);
+  }
+  footer {
+    padding: 0 24px 48px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 720px) {
+    .who { grid-template-columns: 1fr; }
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <p class="mark">vFrida · HOOK</p>
+  <h1>系统服务劫持与系统劫持</h1>
+  <p class="lede">
+    访客进程跑的是宿主槽位里的空壳。它向系统要的活动、包、文件和主线程消息，必须先经过 vFrida，才能落到虚拟服务或改写成宿主身份。
+  </p>
+</header>
+
+<nav>
+  <a href="index.html">目录</a>
+  <a href="#why">为什么</a>
+  <a href="#two">两层对象</a>
+  <a href="#when">何时装上</a>
+  <a href="#svc">系统服务</a>
+  <a href="#dispatch">一次调用</a>
+  <a href="#sys">系统对象</a>
+  <a href="#repair">坏环境</a>
+  <a href="#detect">如何检测</a>
+  <a href="#files">源码</a>
+</nav>
+
+<main>
+<h2 id="why">为什么要劫持</h2>
+<p>虚拟应用没有自己的 <code>system_server</code>。Activity、Service、广播、包查询仍然走本机的 ActivityManager 和 PackageManager。如果不改调用路径，系统看到的是宿主包名和宿主 uid，访客自己的组件也进不了桩进程。</p>
+<p>vFrida 在访客进程（以及 <code>:black</code> 服务进程）里做两件事。一件是把系统服务的 Binder 换成代理，让 <code>startActivity</code>、<code>getPackageInfo</code> 这类调用先到 Java 代理。另一件是替换进程里框架已经拿住的对象：主线程 <code>Handler</code> 的回调、<code>Instrumentation</code>、<code>libcore.io.Libcore.os</code>。前者拦跨进程服务，后者拦本进程里框架自己走的入口。</p>
+
+<div class="who">
+  <article>
+    <h3>系统服务劫持</h3>
+    <p>换掉 <code>ServiceManager</code> 缓存或框架单例里的 Binder / 接口，按方法名改写参数或转给 <code>BActivityManager</code>、<code>BPackageManager</code>。</p>
+  </article>
+  <article>
+    <h3>系统劫持</h3>
+    <p>换掉 <code>ActivityThread.mH</code> 的 <code>Callback</code>、<code>mInstrumentation</code> 和 <code>Libcore.os</code>，在启动活动和打开文件之前插入沙箱逻辑。</p>
+  </article>
+</div>
+
+<h2 id="two">两层对象</h2>
+<p>所有注入器都实现 <code>IInjector</code>：<code>inject()</code> 装上代理，<code>isBadEnv()</code> 判断代理是不是还在原位。Binder 服务和普通 Java 对象共用同一套动态代理，差别只在「代理最后写回哪里」。</p>
+<p><code>BinderInvocationStub</code> 自己继承 <code>ClassInvocationStub</code>。下面按直接父类分开列，Binder 子类不再重复算进 <code>ClassInvocationStub</code>。</p>
+
+<h3><code>BinderInvocationStub</code></h3>
+<p>代理系统服务的 <code>IBinder</code>，写回 <code>ServiceManager.sCache</code>。包管理还会改 <code>ActivityThread</code> 里已经取出的接口。</p>
+<table>
+  <thead><tr><th>类</th><th>服务</th></tr></thead>
+  <tbody>
+    <tr><td><code>IPackageManagerProxy</code></td><td><code>package</code></td></tr>
+    <tr><td><code>IActivityTaskManagerProxy</code></td><td><code>activity_task</code></td></tr>
+    <tr><td><code>IJobServiceProxy</code></td><td>jobscheduler</td></tr>
+    <tr><td><code>IAlarmManagerProxy</code></td><td>alarm</td></tr>
+    <tr><td><code>INotificationManagerProxy</code></td><td>notification</td></tr>
+    <tr><td><code>IAppOpsManagerProxy</code></td><td>appops</td></tr>
+    <tr><td><code>IAppWidgetManagerProxy</code></td><td>appwidget</td></tr>
+    <tr><td><code>IWindowManagerProxy</code></td><td>window</td></tr>
+    <tr><td><code>IWindowSessionProxy</code></td><td><code>openSession</code> 返回的 session，不进 <code>sCache</code></td></tr>
+    <tr><td><code>IUserManagerProxy</code></td><td>user</td></tr>
+    <tr><td><code>IPermissionManagerProxy</code></td><td>permissionmgr</td></tr>
+    <tr><td><code>IDevicePolicyManagerProxy</code></td><td>device_policy</td></tr>
+    <tr><td><code>ILauncherAppsProxy</code></td><td>launcherapps</td></tr>
+    <tr><td><code>IShortcutManagerProxy</code></td><td>shortcut</td></tr>
+    <tr><td><code>IAccessibilityManagerProxy</code></td><td>accessibility</td></tr>
+    <tr><td><code>IInputMethodManagerProxy</code></td><td>input_method</td></tr>
+    <tr><td><code>ISystemUpdateProxy</code></td><td>system_update</td></tr>
+    <tr><td><code>ContentServiceStub</code></td><td>content</td></tr>
+    <tr><td><code>RestrictionsManagerStub</code></td><td>restrictions</td></tr>
+    <tr><td><code>IAccountManagerProxy</code></td><td>account</td></tr>
+    <tr><td><code>ILocationManagerProxy</code></td><td>location</td></tr>
+    <tr><td><code>ITelephonyProxy</code></td><td>phone</td></tr>
+    <tr><td><code>ITelephonyRegistryProxy</code></td><td>telephony.registry</td></tr>
+    <tr><td><code>ISubProxy</code></td><td>isub</td></tr>
+    <tr><td><code>IStorageManagerProxy</code></td><td>mount</td></tr>
+    <tr><td><code>IStorageStatsManagerProxy</code></td><td>storagestats</td></tr>
+    <tr><td><code>IPersistentDataBlockServiceProxy</code></td><td>persistent_data_block</td></tr>
+    <tr><td><code>IConnectivityManagerProxy</code></td><td>connectivity</td></tr>
+    <tr><td><code>INetworkManagementServiceProxy</code></td><td>network_management</td></tr>
+    <tr><td><code>IWifiManagerProxy</code></td><td>wifi</td></tr>
+    <tr><td><code>IWifiScannerProxy</code></td><td>wifiscanner</td></tr>
+    <tr><td><code>IVpnManagerProxy</code></td><td><code>vpn_management</code></td></tr>
+    <tr><td><code>IDnsResolverProxy</code></td><td>dnsresolver</td></tr>
+    <tr><td><code>IAudioServiceProxy</code></td><td>audio</td></tr>
+    <tr><td><code>AudioPermissionProxy</code></td><td>audio 权限</td></tr>
+    <tr><td><code>IMediaSessionManagerProxy</code></td><td>media_session</td></tr>
+    <tr><td><code>IMediaRouterServiceProxy</code></td><td>media_router</td></tr>
+    <tr><td><code>IGraphicsStatsProxy</code></td><td>graphicsstats</td></tr>
+    <tr><td><code>IPowerManagerProxy</code></td><td>power</td></tr>
+    <tr><td><code>IFingerprintManagerProxy</code></td><td>fingerprint</td></tr>
+    <tr><td><code>IAuthServiceProxy</code></td><td>auth</td></tr>
+    <tr><td><code>IAutofillManagerProxy</code></td><td>autofill</td></tr>
+    <tr><td><code>IDeviceIdentifiersPolicyProxy</code></td><td>device_identifiers</td></tr>
+    <tr><td><code>ISensorPrivacyManagerProxy</code></td><td>sensor_privacy</td></tr>
+    <tr><td><code>IContextHubServiceProxy</code></td><td><code>contexthub</code> / <code>contexthub_service</code></td></tr>
+    <tr><td><code>IVibratorServiceProxy</code></td><td><code>vibrator_manager</code> 或 <code>vibrator</code></td></tr>
+    <tr><td><code>ISensitiveContentProtectionManagerProxy</code></td><td><code>sensitive_content_protection_service</code></td></tr>
+    <tr><td><code>IMiuiSecurityManagerProxy</code></td><td><code>miui.security.SecurityManager</code></td></tr>
+  </tbody>
+</table>
+
+<h3><code>ClassInvocationStub</code></h3>
+<p>代理已经在进程里的 Java 对象，写回框架单例或静态字段。活动管理换的是 <code>Singleton.mInstance</code>，<code>OsStub</code> 换的是 <code>Libcore.os</code>。</p>
+<table>
+  <thead><tr><th>类</th><th>对象</th></tr></thead>
+  <tbody>
+    <tr><td><code>IActivityManagerProxy</code></td><td><code>IActivityManager</code> 单例</td></tr>
+    <tr><td><code>IActivityClientProxy</code></td><td>ActivityClient</td></tr>
+    <tr><td><code>IDisplayManagerProxy</code></td><td>DisplayManagerGlobal</td></tr>
+    <tr><td><code>OsStub</code></td><td><code>libcore.io.Libcore.os</code></td></tr>
+    <tr><td><code>ContentResolverProxy</code></td><td>ContentResolver</td></tr>
+    <tr><td><code>ContentProviderStub</code></td><td>访客 ContentProvider</td></tr>
+    <tr><td><code>SystemProviderStub</code></td><td>系统 ContentProvider</td></tr>
+    <tr><td><code>IContentProviderProxy</code></td><td>IContentProvider</td></tr>
+    <tr><td><code>ISettingsProviderProxy</code></td><td>Settings Provider</td></tr>
+    <tr><td><code>ISettingsSystemProxy</code></td><td>Settings.System</td></tr>
+    <tr><td><code>IAttributionSourceProxy</code></td><td>AttributionSource</td></tr>
+    <tr><td><code>IPhoneSubInfoProxy</code></td><td>iphonesubinfo</td></tr>
+    <tr><td><code>ISystemSensorManagerProxy</code></td><td>SystemSensorManager</td></tr>
+    <tr><td><code>FileSystemProxy</code></td><td>File / 目录 API</td></tr>
+    <tr><td><code>SQLiteDatabaseProxy</code></td><td>SQLiteDatabase</td></tr>
+    <tr><td><code>LevelDbProxy</code></td><td>LevelDB</td></tr>
+    <tr><td><code>AudioRecordProxy</code></td><td>AudioRecord</td></tr>
+    <tr><td><code>MediaRecorderProxy</code></td><td>MediaRecorder</td></tr>
+    <tr><td><code>MediaRecorderClassProxy</code></td><td>MediaRecorder 类方法</td></tr>
+    <tr><td><code>ClassLoaderProxy</code></td><td>ClassLoader</td></tr>
+    <tr><td><code>ApkAssetsProxy</code></td><td>ApkAssets</td></tr>
+    <tr><td><code>ResourcesManagerProxy</code></td><td>ResourcesManager</td></tr>
+    <tr><td><code>FeatureFlagUtilsProxy</code></td><td>FeatureFlagUtils</td></tr>
+    <tr><td><code>WorkManagerProxy</code></td><td>WorkManager</td></tr>
+    <tr><td><code>WebViewProxy</code></td><td>WebView</td></tr>
+    <tr><td><code>WebViewFactoryProxy</code></td><td>WebViewFactory</td></tr>
+    <tr><td><code>IWebViewUpdateServiceProxy</code></td><td>webviewupdate</td></tr>
+    <tr><td><code>BrowserEngineProxy</code></td><td>浏览器引擎</td></tr>
+    <tr><td><code>SystemLibraryProxy</code></td><td>系统 so 加载</td></tr>
+    <tr><td><code>ReLinkerProxy</code></td><td>ReLinker</td></tr>
+    <tr><td><code>IXiaomiSettingsProxy</code></td><td>小米 Settings</td></tr>
+    <tr><td><code>IXiaomiAttributionSourceProxy</code></td><td>小米 AttributionSource</td></tr>
+    <tr><td><code>IXiaomiMiuiServicesProxy</code></td><td>小米系统服务</td></tr>
+  </tbody>
+</table>
+
+<h3>直接实现 <code>IInjector</code></h3>
+<p>不走动态代理，换成一个具体对象。</p>
+<table>
+  <thead><tr><th>类</th><th>写回</th></tr></thead>
+  <tbody>
+    <tr><td><code>HCallbackProxy</code></td><td><code>ActivityThread.mH</code> 的 <code>mCallback</code></td></tr>
+    <tr><td><code>AppInstrumentation</code></td><td><code>ActivityThread.mInstrumentation</code></td></tr>
+    <tr><td><code>AntiVirtualDetectProxy</code></td><td>虚拟环境探测相关静态调用</td></tr>
+    <tr><td><code>NetworkPermissionCompat</code></td><td>网络权限兼容</td></tr>
+    <tr><td><code>BResourcesManager</code></td><td>资源加载</td></tr>
+  </tbody>
+</table>
+<p><code>ClassInvocationStub.inject</code> 先 <code>getWho()</code> 取出真对象，再用 <code>Proxy.newProxyInstance</code> 包住它实现的全部接口。<code>onlyProxy</code> 为假时调用子类的 <code>inject(base, proxy)</code>，把代理写回框架。接着扫描内部类上的 <code>@ProxyMethod</code> / <code>@ProxyMethods</code>，以及类上 <code>@ScanClass</code> 指向的兄弟类，把每个内部类实例登记成 <code>MethodHook</code>。</p>
+
+<h2 id="when">何时装上</h2>
+<p><code>BbCore.doAttachBaseContext</code> 按进程名区分主进程、Server（<code>:black</code>）和访客。三类进程都会走到 <code>HookManager.init()</code>，但登记表只在 Server 和访客里填充。主进程不替换系统服务。</p>
+<div class="flow">
+  <div class="step"><div class="n">1</div><div class="body"><strong>登记</strong><p><code>addInjector</code> 按类名放进 <code>mInjectors</code>。ActivityManager、PackageManager、电话、通知、窗口、定位这些始终登记；权限、存储统计、Job、指纹等按 <code>BuildCompat</code> 的 API 级别补上。</p></div></div>
+  <div class="step"><div class="n">2</div><div class="body"><strong>注入</strong><p><code>injectAll</code> 逐个调用 <code>inject()</code>。ActivityManager、PackageManager、WebView、ContentProvider 失败时，若 <code>isBadEnv()</code> 仍为真会再试一次。</p></div></div>
+  <div class="step"><div class="n">3</div><div class="body"><strong>复查</strong><p>之后 <code>checkEnv</code> / <code>checkAll</code> 发现代理被框架换回去，就再 <code>inject()</code> 一次。</p></div></div>
+</div>
+
+<h2 id="svc">系统服务劫持</h2>
+<p>应用拿系统服务，走的是 <code>ServiceManager.getService(name)</code>。这个方法先查进程内静态表 <code>sCache</code>。命中就不再向 <code>servicemanager</code> 要 Binder。<code>BinderInvocationStub.replaceSystemService</code> 放进这张表的是只实现 <code>IBinder</code> 的动态代理。公开接口生成的类名是 <code>$Proxy</code> 加数字，例如 <code>$Proxy0</code>。</p>
+<p>代理把 <code>transact</code>、<code>pingBinder</code>、<code>linkToDeath</code> 转给桩，桩再转给原来的系统 Binder。<code>queryLocalInterface</code> 仍返回接口上的动态代理，所以 <code>asInterface</code> 在本进程拿到的是带方法钩子的对象，而不会再打一次 Binder。</p>
+
+<h3>包管理：缓存和已缓存的接口一起换</h3>
+<p><code>IPackageManagerProxy</code> 继承 <code>BinderInvocationStub</code>，构造时拿 <code>ActivityThread.sPackageManager().asBinder()</code> 当底座。注入时做三处替换：</p>
+<ol>
+  <li><code>ActivityThread.sPackageManager</code> 改成代理，框架里已经取出的接口不再指向系统。</li>
+  <li><code>replaceSystemService("package")</code>，后来的 <code>getService("package")</code> 也进桩。</li>
+  <li>系统 Context 上的 <code>ApplicationPackageManager.mPM</code> 改成同一代理，并关掉 <code>ApplicationInfo</code> 缓存，避免旧的包信息留在框架里。</li>
+</ol>
+<p>方法钩子里，已安装到沙箱的包名查询转到 <code>BPackageManager</code>；需要过系统权限检查的调用，由 <code>PkgMethodProxy</code> / <code>ValueMethodProxy</code> 把包名、uid 改回宿主再交给原来的 <code>mBase</code>。</p>
+
+<h3>活动管理：换单例里的实例</h3>
+<p>ActivityManager 在 Oreo 之后是 <code>ActivityManager.IActivityManagerSingleton</code>，更早是 <code>ActivityManagerNative.gDefault</code>。两者都是 <code>Singleton</code>。<code>IActivityManagerProxy.getWho</code> 取出 <code>Singleton.get()</code> 的当前实例做代理底座；<code>inject</code> 把 <code>mInstance</code> 写成代理。之后 <code>ActivityManager.getService()</code> 直接返回这个代理。</p>
+<p><code>isBadEnv</code> 比较「当前单例实例」和「我们装上的代理」。框架若重新 <code>get()</code> 出了新的系统接口，复查时会再注入。<code>@ScanClass(ActivityManagerCommonProxy.class)</code> 把启动活动、绑定服务、发广播等公共改写放在另一个类的内部类里，注入时一并登记。</p>
+<p>一次 <code>startActivity</code> 的典型去向：代理认出桩 Intent 里的 <code>ProxyActivityRecord</code>，把目标改成宿主清单里的桩 Activity，真正的组件信息留给 <code>HCallbackProxy</code> 在主线程还原；或者把调用转到 <code>BActivityManager</code>，由 <code>:black</code> 里的 <code>BActivityManagerService</code> 决定进哪个槽位进程。代理自己的 <code>invoke</code> 若碰到 <code>SecurityException</code>，按方法名前缀返回空或 0，避免访客因为宿主权限直接崩溃。</p>
+
+<h3>其余服务</h3>
+<p>电话、订阅、通知、闹钟、窗口、用户、定位、账号、存储、网络、AppOps、WebView、小米服务都是同一模式：<code>StubHelper.getServiceInterface</code> 用 BlackReflection 生成的 Stub 或系统 <code>asInterface</code> 取出接口，<code>replaceSystemService</code> 换掉对应的服务名（如 <code>phone</code>、<code>window</code>、<code>location</code>）。<code>MethodHook.isEnable</code> 默认只在访客进程生效，Server 进程里装上的代理多数方法会直接转到原来的系统对象。</p>
+
+<h2 id="dispatch">一次调用怎么分发</h2>
+<p><code>ClassInvocationStub.invoke</code> 只用方法名查表，不看参数签名。没有钩子，或钩子 <code>isEnable()</code> 为假，就 <code>method.invoke(mBase, args)</code>。有钩子时顺序是：</p>
+<ol>
+  <li><code>beforeHook</code>：返回非 null 则直接作为结果，不再调用原方法。</li>
+  <li><code>hook</code>：子类实现。常见写法是改 <code>args</code> 后 <code>method.invoke(who, args)</code>，或改调 <code>BActivityManager</code> / <code>BPackageManager</code>。</li>
+  <li><code>afterHook</code>：改返回值，默认原样返回。</li>
+</ol>
+<div class="note">同名重载会撞在同一条钩子上。需要区分时，钩子自己看 <code>Method</code> 的参数类型。</div>
+
+<h2 id="sys">系统劫持</h2>
+<p>有些路径不经过 <code>ServiceManager</code>。系统在本进程里已经握住 Handler、Instrumentation 和 <code>Os</code>。这些要单独换。</p>
+
+<h3>主线程消息：<code>HCallbackProxy</code></h3>
+<p><code>ActivityThread</code> 的 <code>mH</code> 是主线程 Handler。注入时读出原来的 <code>mCallback</code>，再把 <code>mCallback</code> 设成 <code>HCallbackProxy</code>。回调返回 false 时，消息仍会进 <code>ActivityThread.H.handleMessage</code>，所以未处理的消息保持原行为。</p>
+<p>Pie 及以后，启动活动的消息是 <code>EXECUTE_TRANSACTION</code>，更早是 <code>LAUNCH_ACTIVITY</code>。<code>handleLaunchActivity</code> 从 <code>ClientTransaction</code> 里取出 <code>LaunchActivityItem</code>（或旧的 <code>ActivityClientRecord</code>），读 Intent：</p>
+<ul>
+  <li>进程还没有 <code>AppConfig</code>：向 <code>BActivityManager</code> 要求按包名和进程名重启，把启动 Intent 写回消息，并把这条消息插到队列头，返回 true 吃掉当前这次，等进程准备好再执行。</li>
+  <li>线程还没 <code>bindApplication</code>：用 ActivityInfo 里的包名和进程名绑定访客，换上真实的 Application、ClassLoader 和重定向规则，同样把消息重新入队。</li>
+  <li>已经绑定：把桩 Activity 的 Intent 还原成访客真实组件，后续 <code>H.handleMessage</code> 创建的就是访客 Activity。</li>
+</ul>
+<p><code>CREATE_SERVICE</code> 走 <code>handleCreateService</code>。桩进程里若要创建的不是本槽位的 <code>ProxyService</code> / <code>ProxyJobService</code>，就改走 <code>BActivityManager.startService</code>。处理期间用 <code>AtomicBoolean</code> 挡住重入。原来的 callback 在 vFrida 不接管的消息上继续被调用。</p>
+
+<h3>Instrumentation：<code>AppInstrumentation</code></h3>
+<p>活动真正 <code>new</code> 出来、调用 <code>callActivityOnCreate</code>，走的是 <code>ActivityThread.mInstrumentation</code>。绑定应用时 <code>BActivityThread</code> 调用 <code>AppInstrumentation.inject</code>：记下当前 Instrumentation 作为 <code>mBaseInstrumentation</code>，再把 <code>mInstrumentation</code> 设成自己。<code>BaseInstrumentationDelegate</code> 把未覆盖的方法转给原来的对象。</p>
+<p>覆盖点集中在生命周期：创建活动前确认 ClassLoader 和主题，<code>callActivityOnCreate</code> 前后接上沙箱的 Activity 记录。若当前 Instrumentation 已经是 <code>AppInstrumentation</code>，或某个包装类的字段里能找到它，<code>inject</code> 直接返回，避免套两层。</p>
+
+<h3>文件：<code>OsStub</code></h3>
+<p>Java 的 <code>java.io</code> / <code>android.system.Os</code> 最终调用 <code>libcore.io.Libcore.os</code>。<code>OsStub</code> 代理这个对象并写回 <code>Libcore.os</code>。<code>invoke</code> 扫描参数里以 <code>/</code> 开头的字符串，交给 <code>IORedirect</code> 换成沙箱路径，再调用原来的 <code>os</code>。这是 Java 层的路径劫持；native 的 <code>openat</code> 和可选的 seccomp SVC 兜底在另一条链上，见 <a href="io-redirect.html">路径重定向</a> 和 <a href="svc-hijack.html">路径类 SVC</a>。</p>
+
+<h2 id="repair">坏环境</h2>
+<p>框架会在某些时机重新取出系统服务，把单例或 Handler 回调换回去。<code>isBadEnv</code> 就是在比较「现在坐在那个字段里的对象」和「我们装上的代理」。<code>HCallbackProxy</code> 发现 <code>mCallback != this</code> 为坏环境；<code>IActivityManagerProxy</code> 发现单例 <code>get()</code> 不再是代理为坏环境；<code>OsStub</code> 发现 <code>Libcore.os</code> 不是代理为坏环境。<code>HookManager.checkEnv</code> 只重装这一个，<code>checkAll</code> 扫整张表。</p>
+
+<h2 id="detect">如何检测</h2>
+<p><code>isBadEnv</code> 检查的是代理还在不在，用来发现框架把钩子换掉了。下面是反过来：从进程里已有的对象判断这三种替换是否已经装上。三种留下的类型不同，不能用同一种比较。</p>
+
+<h3><code>BinderInvocationStub</code></h3>
+<p>一项常见检查是对 <code>location</code>、<code>phone</code>、<code>clipboard</code> 调用 <code>ServiceManager.getService</code>，看返回对象的类名。正常是简单类名 <code>BinderProxy</code>，或者类名以 <code>$Proxy</code>、<code>$Proxy</code> 加数字结尾。两个都不是才算异常。</p>
+<p>写进 <code>sCache</code> 的动态代理类名是 <code>$ProxyN</code>，这一项保持正常。<code>clipboard</code> 没有替换，仍是 <code>BinderProxy</code>。接口上的代理类名同样以 <code>$Proxy</code> 结尾。方法钩子在接口代理的 <code>InvocationHandler</code> 上，那个对象的类才在 <code>com.android.bb.hook</code>。</p>
+<ul>
+  <li><code>queryLocalInterface</code> 返回接口代理。远端 <code>BinderProxy</code> 在应用进程里通常返回 null，接口要靠 <code>asInterface</code> 再包一层。</li>
+  <li><code>transact</code> 仍转给原来的系统 Binder，<code>getInterfaceDescriptor</code> 也还是系统描述符。描述符对得上，不能说明没被换。</li>
+</ul>
+
+<h3><code>ClassInvocationStub</code></h3>
+<p>这里换的不是 Binder 缓存，而是框架已经 <code>asInterface</code> 或 <code>Singleton.get()</code> 拿到的 Java 对象。代理类是 <code>java.lang.reflect.Proxy</code> 生成的 <code>$ProxyN</code>，<code>InvocationHandler</code> 是对应的 Stub。</p>
+<ul>
+  <li><code>ActivityManager.getService()</code>（Oreo 起是 <code>IActivityManagerSingleton</code> 的 <code>mInstance</code>）上调用 <code>Proxy.isProxyClass</code>。为真则活动管理已被 <code>IActivityManagerProxy</code> 包住。<code>Proxy.getInvocationHandler</code> 的类名是 <code>IActivityManagerProxy</code>。</li>
+  <li><code>libcore.io.Libcore.os</code> 正常是 <code>BlockGuardOs</code> 或 <code>Linux</code>。变成 <code>$Proxy</code> 且 handler 是 <code>OsStub</code>，就是路径劫持。</li>
+  <li>调用栈里出现 <code>ClassInvocationStub.invoke</code>，说明这次调用经过了方法表，而不是直接进系统实现。</li>
+</ul>
+
+<h3>直接实现 <code>IInjector</code></h3>
+<p>这五个不是 <code>$Proxy</code>，检测就是看字段里坐着的具体类。</p>
+<table>
+  <thead><tr><th>字段</th><th>装上之后的类</th></tr></thead>
+  <tbody>
+    <tr><td><code>ActivityThread.mH.mCallback</code></td><td><code>HCallbackProxy</code></td></tr>
+    <tr><td><code>ActivityThread.mInstrumentation</code></td><td><code>AppInstrumentation</code>。外层若再包一层，要沿字段往下找，<code>AppInstrumentation.checkInstrumentation</code> 就是这么做的</td></tr>
+    <tr><td><code>Runtime.exit</code> 是否被拦住</td><td><code>AntiVirtualDetectProxy</code> 只置了 <code>sInstalled</code>，当前没有真正换方法</td></tr>
+    <tr><td>网络权限兼容、资源管理</td><td><code>NetworkPermissionCompat</code>、<code>BResourcesManager</code> 没有替换一个全局单例，看 <code>HookManager</code> 的 <code>mInjectors</code> 里有没有这两个类</td></tr>
+  </tbody>
+</table>
+<p><code>sCache</code> 里的 Binder 现在和普通动态代理同一类名。要区分，得再看 <code>queryLocalInterface</code> 返回对象的 <code>InvocationHandler</code> 是不是桩。<code>mH.mCallback</code> 和 <code>mInstrumentation</code> 的类名仍是 <code>com.android.bb.hook</code>。类名在宿主包的访客进程里出现，就是这套劫持。</p>
+
+<h2 id="files">源码</h2>
+<table>
+  <thead><tr><th>类</th><th>角色</th></tr></thead>
+  <tbody>
+    <tr><td><code>hook/IInjector</code></td><td><code>inject</code> / <code>isBadEnv</code></td></tr>
+    <tr><td><code>hook/HookManager</code></td><td>按进程和 API 级别登记并注入</td></tr>
+    <tr><td><code>hook/ClassInvocationStub</code></td><td>动态代理、注解钩子、<code>before / hook / after</code></td></tr>
+    <tr><td><code>hook/BinderInvocationStub</code></td><td>替换 <code>ServiceManager.sCache</code></td></tr>
+    <tr><td><code>hook/system/IPackageManagerProxy</code></td><td>包服务：静态字段、缓存、ApplicationPackageManager</td></tr>
+    <tr><td><code>hook/system/IActivityManagerProxy</code></td><td>活动服务：<code>Singleton.mInstance</code></td></tr>
+    <tr><td><code>hook/system/HCallbackProxy</code></td><td>主线程启动活动和创建服务</td></tr>
+    <tr><td><code>hook/app/AppInstrumentation</code></td><td><code>ActivityThread.mInstrumentation</code></td></tr>
+    <tr><td><code>hook/system/OsStub</code></td><td><code>Libcore.os</code> 路径改写</td></tr>
+    <tr><td><code>BbCore.doAttachBaseContext</code></td><td>调用 <code>HookManager.init</code></td></tr>
+  </tbody>
+</table>
+<p>虚拟服务本身住在 <code>:black</code> 进程，客户端经 <code>BActivityManager</code>、<code>BPackageManager</code> 跨进程调用。进程模型和这些服务的清单见 <a href="vapp-runtime.html">VApp 怎么跑起来</a>。</p>
+</main>
+<footer>
+  vFrida 文档 · 系统服务劫持 · 与 <a href="./vapp-runtime.html">VApp 运行时</a> 同系样式
+</footer>
+</body>
+</html>

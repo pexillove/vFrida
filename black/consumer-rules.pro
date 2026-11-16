@@ -1,0 +1,2 @@
+-keep class black.** { *; }
+-keep class com.android.blackreflection.** { *; }

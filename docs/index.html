@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vFrida 文档</title>
+<style>
+  :root {
+    --surface: #0C0D11;
+    --card: #17191F;
+    --gold: #C6A36A;
+    --chrome: #F3F0E8;
+    --muted: #9A948A;
+    --line: #2C2E34;
+    --ink: #14120E;
+    --page: 820px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--chrome);
+    background: var(--surface);
+    font: 16px/1.7 "PingFang SC", "Noto Sans SC", "Avenir Next", sans-serif;
+  }
+  header, nav, main, footer { max-width: var(--page); margin: 0 auto; }
+  header { padding: 48px 24px 8px; }
+  .mark {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 0.34em;
+  }
+  h1 {
+    margin: 14px 0 0;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+  }
+  h1::after {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 2px;
+    margin-top: 12px;
+    background: var(--gold);
+  }
+  .lede { margin: 14px 0 0; color: var(--muted); font-size: 15px; }
+  nav {
+    padding: 22px 24px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  nav a {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+  nav a:hover { color: var(--chrome); }
+  main { padding: 8px 24px 72px; }
+  h2 {
+    margin: 40px 0 12px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  p { margin: 0 0 14px; }
+  a { color: var(--gold); }
+  .list { display: grid; gap: 12px; margin: 0 0 8px; }
+  article.item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px 14px;
+  }
+  article.item h3 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  article.item h3 a { color: var(--chrome); text-decoration: none; }
+  article.item h3 a:hover { color: var(--gold); }
+  article.item p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+  .jumps { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+  .jumps a { font-size: 13px; text-decoration: none; letter-spacing: 0.02em; }
+  .jumps a:hover { color: var(--chrome); }
+  footer {
+    padding: 0 24px 48px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 720px) {
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <p class="mark">vFrida · DOCS</p>
+  <h1>文档</h1>
+  <p class="lede">
+    先看分身怎么在宿主进程里跑起来，再看系统调用和路径被改到哪里，最后是脚本怎么送进进程。
+  </p>
+</header>
+
+<nav>
+  <a href="#run">运行</a>
+  <a href="#path">路径</a>
+  <a href="#script">脚本</a>
+  <a href="#note">对外</a>
+</nav>
+
+<main>
+<section id="run">
+  <h2>运行</h2>
+  <div class="list">
+    <article class="item">
+      <h3><a href="vapp-runtime.html">VApp 怎么跑起来</a></h3>
+      <p>系统里活着的是宿主名下的桩进程。进程起来之后，再换上访客自己的 Application、组件和数据目录。</p>
+      <div class="jumps">
+        <a href="vapp-runtime.html#what">是什么</a>
+        <a href="vapp-runtime.html#procs">三种进程</a>
+        <a href="vapp-runtime.html#id">身份</a>
+        <a href="vapp-runtime.html#install">装进去</a>
+        <a href="vapp-runtime.html#launch">点开之后</a>
+        <a href="vapp-runtime.html#bind">换上真应用</a>
+        <a href="vapp-runtime.html#proxy">组件桩</a>
+        <a href="vapp-runtime.html#svc">虚拟系统</a>
+      </div>
+    </article>
+    <article class="item">
+      <h3><a href="service-hijack.html">系统服务劫持与系统劫持</a></h3>
+      <p>访客向系统要的活动、包、文件和主线程消息，先经过 vFrida，再落到虚拟服务或改写成宿主身份。</p>
+      <div class="jumps">
+        <a href="service-hijack.html#why">为什么</a>
+        <a href="service-hijack.html#two">两层对象</a>
+        <a href="service-hijack.html#when">何时装上</a>
+        <a href="service-hijack.html#svc">系统服务</a>
+        <a href="service-hijack.html#dispatch">一次调用</a>
+        <a href="service-hijack.html#sys">系统对象</a>
+        <a href="service-hijack.html#repair">坏环境</a>
+        <a href="service-hijack.html#detect">如何检测</a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section id="path">
+  <h2>路径</h2>
+  <div class="list">
+    <article class="item">
+      <h3><a href="io-redirect.html">IO 重定向</a></h3>
+      <p>访客以为自己在写 <code>/data/data/&lt;pkg&gt;</code> 和 <code>/sdcard</code>，真实落盘在宿主私有目录的 <code>v0</code> 树下。</p>
+      <div class="jumps">
+        <a href="io-redirect.html#why">为什么</a>
+        <a href="io-redirect.html#arch">架构</a>
+        <a href="io-redirect.html#root">物理根</a>
+        <a href="io-redirect.html#lifecycle">生命周期</a>
+        <a href="io-redirect.html#rules">规则表</a>
+        <a href="io-redirect.html#resolve">解析算法</a>
+        <a href="io-redirect.html#hooks">生效通道</a>
+        <a href="io-redirect.html#examples">示例</a>
+      </div>
+    </article>
+    <article class="item">
+      <h3><a href="svc-hijack.html">如何劫持路径类 SVC</a></h3>
+      <p>libc 符号 hook 挡不住手写 <code>svc #0</code>。这条用 seccomp-bpf 和 SIGSYS 把路径类系统调用补上。</p>
+      <div class="jumps">
+        <a href="svc-hijack.html#why">为什么要劫持</a>
+        <a href="svc-hijack.html#layers">两层拦截</a>
+        <a href="svc-hijack.html#seccomp">seccomp 过滤器</a>
+        <a href="svc-hijack.html#sigsys">SIGSYS 处理</a>
+        <a href="svc-hijack.html#safe">安全页回放</a>
+        <a href="svc-hijack.html#sentry">与崩溃 SDK 共存</a>
+        <a href="svc-hijack.html#ui">配置开关</a>
+        <a href="svc-hijack.html#log">日志与验证</a>
+      </div>
+    </article>
+    <article class="item">
+      <h3><a href="same-uid.html">如何让同 UID 应用计数保持为 1</a></h3>
+      <p>客端和宿主共用一个内核 uid。同 uid 宿主进程的 <code>cmdline</code> 显示成客端包名之后，按包名去重只剩 1。</p>
+      <div class="jumps">
+        <a href="same-uid.html#detect">检测在数什么</a>
+        <a href="same-uid.html#why">为什么会得到 2</a>
+        <a href="same-uid.html#bypass">绕过</a>
+        <a href="same-uid.html#layers">两条通道</a>
+        <a href="same-uid.html#leave">故意不动的部分</a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section id="script">
+  <h2>脚本</h2>
+  <div class="list">
+    <article class="item">
+      <h3><a href="vfrida-cli.html">vFrida CLI</a></h3>
+      <p>开发机把一段脚本送进宿主或某个分身进程。arm64 上由 QuickJS 执行，日志再沿原路回到开发机。</p>
+      <div class="jumps">
+        <a href="vfrida-cli.html#roles">进程</a>
+        <a href="vfrida-cli.html#sockets">通道</a>
+        <a href="vfrida-cli.html#frames">帧</a>
+        <a href="vfrida-cli.html#spawn">拉起</a>
+        <a href="vfrida-cli.html#attach">挂接</a>
+        <a href="vfrida-cli.html#match">怎么选进程</a>
+        <a href="vfrida-cli.html#script">脚本落到哪</a>
+        <a href="vfrida-cli.html#cli">命令行</a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section id="note">
+  <h2>对外</h2>
+  <div class="list">
+    <article class="item">
+      <h3><a href="vfrida-wechat.html">vFrida：一套类 Frida，放进 BlackBox</a></h3>
+      <p>给公众号用的介绍稿。讲项目从哪来、开发机和 <code>:black</code> 怎么连，以及脚本怎么进分身。</p>
+      <div class="jumps">
+        <a href="vfrida-wechat.html">打开全文</a>
+      </div>
+    </article>
+  </div>
+</section>
+</main>
+
+<footer>
+  页面都在 <code>docs/</code>。技术说明用同一套版式，公众号稿是单独一页。
+</footer>
+</body>
+</html>

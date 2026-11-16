@@ -1,0 +1,187 @@
+package com.android.bb.hook.content;
+
+
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+
+import com.android.bb.BbCore;
+import com.android.bb.app.BActivityThread;
+import com.android.bb.hook.ClassInvocationStub;
+import com.android.bb.hook.MethodHook;
+import com.android.bb.hook.ProxyMethod;
+import com.android.bb.utils.Slog;
+import com.android.bb.BConfig;
+
+
+public class IAttributionSourceProxy extends ClassInvocationStub {
+    public static final String TAG = IAttributionSourceProxy.class.getSimpleName();
+
+    public IAttributionSourceProxy() {
+        super();
+    }
+
+    @Override
+    protected Object getWho() {
+        
+        return null;
+    }
+
+    @Override
+    protected void inject(Object base, Object proxy) {
+        
+        Slog.d(TAG, "AttributionSource proxy initialized for UID mismatch prevention");
+    }
+
+    @Override
+    public boolean isBadEnv() {
+        return false;
+    }
+
+    
+    @ProxyMethod("AttributionSource")
+    public static class AttributionSourceConstructor extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            try {
+                
+                int uid = BbCore.getHostUid();
+                String packageName = BConfig.get().getString(BConfig.KEY_HOST_PACKAGE, null);
+                
+                Slog.d(TAG, "Creating AttributionSource with UID: " + uid + ", package: " + packageName);
+                
+                
+                Object attributionSource = createSafeAttributionSource(uid, packageName);
+                if (attributionSource != null) {
+                    return attributionSource;
+                }
+                
+                
+                return method.invoke(who, args);
+            } catch (Exception e) {
+                Slog.w(TAG, "Error creating AttributionSource, using fallback: " + e.getMessage());
+                return createSafeAttributionSource(BbCore.getHostUid(), BConfig.get().getString(BConfig.KEY_HOST_PACKAGE, null));
+            }
+        }
+        
+        private Object createSafeAttributionSource(int uid, String packageName) {
+            try {
+                
+                Class<?> attributionSourceClass = Class.forName("android.content.AttributionSource");
+                
+                
+                Constructor<?> constructor = null;
+                try {
+                    
+                    constructor = attributionSourceClass.getDeclaredConstructor(int.class, String.class, String.class);
+                } catch (NoSuchMethodException e) {
+                    try {
+                        
+                        constructor = attributionSourceClass.getDeclaredConstructor(int.class, String.class);
+                    } catch (NoSuchMethodException e2) {
+                        
+                        constructor = attributionSourceClass.getDeclaredConstructor();
+                    }
+                }
+                
+                if (constructor != null) {
+                    constructor.setAccessible(true);
+                    
+                    if (constructor.getParameterCount() == 3) {
+                        return constructor.newInstance(uid, packageName, null);
+                    } else if (constructor.getParameterCount() == 2) {
+                        return constructor.newInstance(uid, packageName);
+                    } else {
+                        return constructor.newInstance();
+                    }
+                }
+                
+                return null;
+            } catch (Exception e) {
+                Slog.e(TAG, "Failed to create safe AttributionSource: " + e.getMessage());
+                return null;
+            }
+        }
+    }
+
+    
+    @ProxyMethod("enforceCallingUid")
+    public static class EnforceCallingUid extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            try {
+                
+                Slog.d(TAG, "Intercepting enforceCallingUid to prevent UID mismatch crashes");
+                return null; 
+            } catch (Exception e) {
+                Slog.w(TAG, "Error in enforceCallingUid hook: " + e.getMessage());
+                return null;
+            }
+        }
+    }
+
+    
+    @ProxyMethod("enforceCallingUidAndPid")
+    public static class EnforceCallingUidAndPid extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            try {
+                
+                Slog.d(TAG, "Intercepting enforceCallingUidAndPid to prevent UID mismatch crashes");
+                return null; 
+            } catch (Exception e) {
+                Slog.w(TAG, "Error in enforceCallingUidAndPid hook: " + e.getMessage());
+                return null;
+            }
+        }
+    }
+
+    
+    @ProxyMethod("fromParcel")
+    public static class FromParcel extends MethodHook {
+        @Override
+        protected Object hook(Object who, Method method, Object[] args) throws Throwable {
+            try {
+                
+                Object result = method.invoke(who, args);
+                if (result != null) {
+                    
+                    fixAttributionSourceUid(result);
+                    return result;
+                }
+                
+                
+                return createSafeAttributionSource(BbCore.getHostUid(), BConfig.get().getString(BConfig.KEY_HOST_PACKAGE, null));
+            } catch (Exception e) {
+                Slog.w(TAG, "Error in fromParcel, using fallback: " + e.getMessage());
+                return createSafeAttributionSource(BbCore.getHostUid(), BConfig.get().getString(BConfig.KEY_HOST_PACKAGE, null));
+            }
+        }
+        
+        private void fixAttributionSourceUid(Object attributionSource) {
+            try {
+                
+                Class<?> attributionSourceClass = attributionSource.getClass();
+                Method setUidMethod = attributionSourceClass.getDeclaredMethod("setUid", int.class);
+                setUidMethod.setAccessible(true);
+                setUidMethod.invoke(attributionSource, BbCore.getHostUid());
+                
+                Slog.d(TAG, "Fixed AttributionSource UID to: " + BbCore.getHostUid());
+            } catch (Exception e) {
+                Slog.w(TAG, "Could not fix AttributionSource UID: " + e.getMessage());
+            }
+        }
+        
+        private Object createSafeAttributionSource(int uid, String packageName) {
+            try {
+                Class<?> attributionSourceClass = Class.forName("android.content.AttributionSource");
+                Constructor<?> constructor = attributionSourceClass.getDeclaredConstructor(int.class, String.class, String.class);
+                constructor.setAccessible(true);
+                return constructor.newInstance(uid, packageName, null);
+            } catch (Exception e) {
+                Slog.e(TAG, "Failed to create safe AttributionSource fallback: " + e.getMessage());
+                return null;
+            }
+        }
+    }
+}

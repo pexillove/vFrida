@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vFrida 如何让同 UID 应用计数保持为 1</title>
+<style>
+  :root {
+    --surface: #0C0D11;
+    --card: #17191F;
+    --gold: #C6A36A;
+    --chrome: #F3F0E8;
+    --muted: #9A948A;
+    --line: #2C2E34;
+    --ink: #14120E;
+    --page: 820px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--chrome);
+    background: var(--surface);
+    font: 16px/1.7 "PingFang SC", "Noto Sans SC", "Avenir Next", sans-serif;
+  }
+  header, nav, main, footer { max-width: var(--page); margin: 0 auto; }
+  header { padding: 48px 24px 8px; }
+  .mark {
+    margin: 0;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 0.34em;
+  }
+  h1 {
+    margin: 14px 0 0;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+  }
+  h1::after {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 2px;
+    margin-top: 12px;
+    background: var(--gold);
+  }
+  .lede { margin: 14px 0 0; color: var(--muted); font-size: 15px; }
+  nav {
+    padding: 22px 24px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+  nav a {
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+  }
+  nav a:hover { color: var(--chrome); }
+  main { padding: 8px 24px 72px; }
+  h2 {
+    margin: 40px 0 12px;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  h3 { margin: 22px 0 8px; font-size: 16px; color: var(--chrome); }
+  p { margin: 0 0 14px; }
+  a { color: var(--gold); }
+  ul, ol { margin: 0 0 14px; padding-left: 1.25em; color: var(--chrome); }
+  li { margin: 0 0 6px; }
+  li::marker { color: var(--gold); }
+  code, pre {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.86em;
+  }
+  code {
+    background: #1C1F27;
+    color: var(--gold);
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--card);
+    color: var(--chrome);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px 18px;
+    overflow: auto;
+    line-height: 1.5;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  th { font-weight: 600; color: var(--gold); font-size: 12px; letter-spacing: 0.06em; }
+  tr:last-child td { border-bottom: 0; }
+  .flow { display: grid; margin: 18px 0 8px; }
+  .step { display: grid; grid-template-columns: 36px 1fr; gap: 12px; }
+  .step .n {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--gold);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    position: relative;
+  }
+  .step:not(:last-child) .n::after {
+    content: "";
+    position: absolute;
+    top: 36px;
+    left: 17px;
+    width: 2px;
+    height: calc(100% + 8px);
+    background: var(--line);
+  }
+  .step .body {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px 14px 10px;
+    margin-bottom: 10px;
+  }
+  .note {
+    background: var(--card);
+    border-left: 2px solid var(--gold);
+    border-radius: 0 16px 16px 0;
+    padding: 12px 14px;
+    margin: 14px 0;
+    color: var(--chrome);
+  }
+  footer {
+    padding: 0 24px 48px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  @media (max-width: 720px) {
+    h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <p class="mark">vFrida · PROC</p>
+  <h1>如何让同 UID 应用计数保持为 1</h1>
+  <p class="lede">
+    客端和宿主进程共用一个内核 uid。检测方数这个 uid 下有几个包名时，本来会得到 2。
+    vFrida 把同 uid 宿主进程的 <code>cmdline</code> 也显示成客端包名，去重之后只剩 1。
+  </p>
+</header>
+
+<nav>
+  <a href="index.html">目录</a>
+  <a href="#detect">检测在数什么</a>
+  <a href="#why">为什么会得到 2</a>
+  <a href="#bypass">绕过</a>
+  <a href="#layers">两条通道</a>
+  <a href="#leave">故意不动的部分</a>
+</nav>
+
+<main>
+<section id="detect">
+  <h2>检测在数什么</h2>
+  <p>结果写在 <code>a118</code>。普通应用这个值是 1：自己的 uid 下面只有自己这一个包，并且 <code>/data/data/&lt;包名&gt;</code> 存在。</p>
+
+  <h3>阶段一：cgroup 只是闸门</h3>
+  <p>读取 <code>/proc/self/cgroup</code>。在全文里取最后一次出现的 <code>uid_</code> 之后、最后一次出现的 <code>/pid_</code> 之前的数字，例如 <code>0::/uid_10403/pid_7454</code> 取出 <code>10403</code>，再拼出用户名 <code>u0_a</code> + <code>(数字 - 10000)</code>。</p>
+  <p>文件打不开、截出来的不是纯数字、用户名为空，或者后面 <code>/proc</code> 列不出来，都直接把 <code>a118</code> 写成 0。这个用户名不再参加后面的筛选。</p>
+
+  <h3>阶段二：同 uid 包名去重</h3>
+  <div class="flow">
+    <div class="step"><div class="n">1</div><div class="body"><code>myUid = Process.myUid()</code>，准备一个空的 <code>HashSet</code>。</div></div>
+    <div class="step"><div class="n">2</div><div class="body">遍历 <code>new File("/proc").listFiles()</code>。不是目录，或者目录名不是纯数字 pid，就看下一条。</div></div>
+    <div class="step"><div class="n">3</div><div class="body">读 <code>/proc/&lt;pid&gt;/status</code> 的 <code>Uid:</code> 行。第 2 列解析成功并且等于 <code>myUid</code>，才继续。</div></div>
+    <div class="step"><div class="n">4</div><div class="body">读 <code>/proc/&lt;pid&gt;/cmdline</code>。取第一个 <code>\0</code> 之前，再取第一个 <code>:</code> 之前，得到包名。空字符串丢掉。</div></div>
+    <div class="step"><div class="n">5</div><div class="body"><code>/data/data/&lt;包名&gt;</code> 存在，才 <code>HashSet.add(包名)</code>。同一个包的多个进程只计一次。</div></div>
+    <div class="step"><div class="n">6</div><div class="body">循环结束，<code>a118 = HashSet.size()</code>。</div></div>
+  </div>
+  <div class="note">
+    阶段一失败和阶段二数出 0 都是 <code>a118 = 0</code>。正常手机上能解析 cgroup 的应用得到的是 1，不是 0。绕过的目标是把计数留在 1，而不是把闸门弄坏。
+  </div>
+</section>
+
+<section id="why">
+  <h2>为什么 vFrida 里会得到 2</h2>
+  <p>客端进程的内核 uid 就是宿主 uid。<code>OsStub.getuid</code> 也把 <code>Process.myUid()</code> 返回成这个宿主 uid，于是 <code>status</code> 里的 <code>Uid:</code> 和 <code>myUid</code> 对得上，这些进程都会进入集合。</p>
+  <p>内核里的进程名仍是宿主包：</p>
+  <table>
+    <thead><tr><th>进程</th><th>内核 cmdline</th><th>冒号前的包名</th></tr></thead>
+    <tbody>
+      <tr><td>宿主主进程</td><td><code>com.android.vfrida</code></td><td><code>com.android.vfrida</code></td></tr>
+      <tr><td><code>:black</code></td><td><code>com.android.vfrida:black</code></td><td><code>com.android.vfrida</code></td></tr>
+      <tr><td>桩进程</td><td><code>com.android.vfrida:p0</code></td><td><code>com.android.vfrida</code></td></tr>
+      <tr><td>当前客端</td><td>同样是 <code>com.android.vfrida:pN</code></td><td>见下一行</td></tr>
+    </tbody>
+  </table>
+  <p>当前客端自己的 <code>/proc/&lt;pid&gt;/cmdline</code> 和 <code>/proc/self/cmdline</code> 已经指到 <code>v0/proc/&lt;bpid&gt;/cmdline</code>。这个文件在进程拉起时写成客端的 <code>processName</code>，例如 <code>com.example.app</code> 或 <code>com.example.app:push</code>。检测方取冒号前，得到客端包名。<code>/data/data/com.example.app</code> 又被 IO 重定向到虚拟数据目录，<code>exists()</code> 为真。</p>
+  <p>于是集合里有两个包：</p>
+  <ul>
+    <li><code>com.android.vfrida</code>：其它同 uid 进程的真实 cmdline，<code>/data/data/com.android.vfrida</code> 在磁盘上存在</li>
+    <li><code>com.example.app</code>：当前进程被换过的 cmdline，虚拟数据目录也存在</li>
+  </ul>
+  <p><code>a118</code> 变成 2。多开几个客端也不会再增加，因为它们的内核 cmdline 去掉冒号后仍是宿主包，已经被去重。</p>
+</section>
+
+<section id="bypass">
+  <h2>绕过</h2>
+  <p>不改 cgroup，不改 <code>status</code> 里的 uid，也不把宿主的 <code>/data/data</code> 藏起来。只改检测方读到的 <code>cmdline</code>：凡是内核 uid 等于宿主 uid、并且内核 cmdline 的包名就是宿主包的进程，都打开客端那份 cmdline 文件。</p>
+  <p>判断写在 <code>IORedirect.siblingCmdline</code>：</p>
+  <ol>
+    <li>路径必须是 <code>/proc/&lt;数字&gt;/cmdline</code>，且不是当前进程。当前进程仍走原来的 <code>/proc/self</code> 映射。</li>
+    <li>读 <code>/proc/&lt;pid&gt;/status</code> 的第一组 uid，必须等于 <code>BbCore.getHostUid()</code>。</li>
+    <li>读内核 cmdline，取 <code>\0</code> 之前。必须等于宿主包名，或者以 <code>宿主包名:</code> 开头。</li>
+    <li>客端 cmdline 文件存在，才把这次打开指过去。</li>
+  </ol>
+  <p>读 <code>status</code> 和内核 cmdline 时要看真实文件。这两次打开套在 <code>sProcBypass</code> 里，<code>redirectPath</code> 直接返回原路径，避免用「已经换成客端包名」的结果来决定要不要换。</p>
+  <p>换完之后，主进程、<code>:black</code>、<code>:pN</code> 和当前客端取出的包名都是 <code>com.example.app</code>。<code>/data/data/com.example.app</code> 存在。集合大小是 1。</p>
+  <pre><code>检测方打开 /proc/4120/cmdline
+4120 的内核 cmdline = com.android.vfrida:black
+uid 与宿主相同
+返回 v0/proc/&lt;bpid&gt;/cmdline
+内容 = com.example.app
+
+检测方打开 /proc/8801/cmdline
+8801 是 zygote64，uid 不同
+不替换</code></pre>
+  <div class="note">
+    zygote 以及其它 uid 的进程保持内核 cmdline。找 zygote pid 时仍然能读到 <code>zygote64</code>。
+  </div>
+</section>
+
+<section id="layers">
+  <h2>两条通道</h2>
+  <p><code>enableRedirect</code> 时，<code>aliasSiblingCmdlines</code> 把当时已经存在的同 uid 宿主进程写进规则表。键是 <code>/proc/&lt;pid&gt;/cmdline</code>，值是客端 cmdline 文件。这张表同时交给 Java 的 Trie 和 <code>BNative.setupRedirect</code>，所以 libc 的路径 hook 和可选的 seccomp 重写也能命中这些已经在跑的 pid。</p>
+  <p>规则装上之后才出现的宿主进程，不在这张静态表里。<code>redirectPath</code> 在查 Trie 之前再跑一次 <code>siblingCmdline</code>。Java 的 <code>new File</code>、<code>FileReader</code> 走 <code>libcore.io.Os</code>，<code>OsStub</code> 会把以 <code>/</code> 开头的参数送进这里，因此这种晚出现的 pid 对 Java 检测仍然显示成客端包名。</p>
+  <p>晚出现的 pid 如果被未经过 <code>Os</code> 的原始 <code>svc</code> 打开，静态表里没有它，seccomp 那条规则也不会临时补上。图里的检测使用 <code>java.io.File</code>，走的是 <code>Os</code>。</p>
+</section>
+
+<section id="leave">
+  <h2>故意不动的部分</h2>
+  <table>
+    <thead><tr><th>检测步骤</th><th>vFrida 的处理</th></tr></thead>
+    <tbody>
+      <tr><td><code>/proc/self/cgroup</code> 里的 <code>uid_</code> / <code>/pid_</code></td><td>保持内核内容。阶段一仍能通过。</td></tr>
+      <tr><td><code>status</code> 的 <code>Uid:</code></td><td>保持宿主 uid，与 <code>Process.myUid()</code> 一致。只伪造当前进程的 <code>PPid</code>。</td></tr>
+      <tr><td><code>/data/data/com.android.vfrida</code></td><td>仍在。计数不再取出这个包名，所以它在不在都不增加 <code>a118</code>。</td></tr>
+      <tr><td>当前进程自己的 cmdline</td><td>仍是原有的 <code>/proc/self/cmdline</code> 映射，不在同级扫描里再改一次。</td></tr>
+    </tbody>
+  </table>
+  <p>路径重定向的其余规则见 <a href="io-redirect.html">IO 重定向</a>。</p>
+</section>
+</main>
+
+<footer>
+  依据 <code>IORedirect.siblingCmdline</code>、<code>aliasSiblingCmdlines</code> 和 <code>OsStub</code>。
+</footer>
+</body>
+</html>
