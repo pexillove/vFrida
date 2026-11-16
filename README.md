@@ -84,3 +84,9 @@ That prints `pong hi`, then keeps waiting for logs.
 
 
 Project overview and module map: [ABOUT.md](ABOUT.md).
+
+## Community
+
+WeChat group for questions and feedback (the QR code is refreshed when it expires):
+
+<img src="docs/vfrida-group.png" alt="vFrida WeChat group" width="320">

@@ -82,3 +82,9 @@ vfrida -U -n com.example.app -l tools/test_rpc.js --call ping --args '["hi"]'
 
 
 项目概览与模块说明见 [ABOUT.md](ABOUT.md)。
+
+## 交流
+
+问题与反馈可以加微信群（二维码过期后会重新生成）：
+
+<img src="docs/vfrida-group.png" alt="vFrida 交流群" width="320">
