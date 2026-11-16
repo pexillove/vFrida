@@ -1,6 +1,5 @@
 [English](README.md)
 
-![vFrida — 放进 BlackBox 沙箱的类 Frida 命令行](docs/vfrida-cover.jpg)
 
 # vFrida
 

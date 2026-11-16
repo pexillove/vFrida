@@ -1,7 +1,5 @@
 [中文](README.zh-CN.md)
 
-![vFrida — a Frida-style CLI inside a BlackBox sandbox](docs/vfrida-cover.jpg)
-
 # vFrida
 
 `tools/vfrida` is the command-line client. It sends a script into the vFrida host or into one cloned app and prints the logs back. The flags follow the Frida command line: spawn with `-f`, attach with `-n` or `-p`, load a file with `-l`.
