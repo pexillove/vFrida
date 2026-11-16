@@ -65,7 +65,8 @@ class Vfrida:
     """One connection. eval() loads a script; call() invokes rpc.exports."""
 
     def __init__(self, host: str, port: int = 2408, timeout: float = 15, target: str = "",
-                 spawn: bool = False):
+                 spawn: bool = False, log_file=None):
+        self.log_file = log_file
         self.sock = socket.create_connection((host, port), timeout=timeout)
         enable_keepalive(self.sock)
         if target:
@@ -103,6 +104,8 @@ class Vfrida:
             if payload.startswith(b"LOG\x00"):
                 text = payload[4:].decode("utf-8", "replace")
                 print(text, flush=True)
+                if self.log_file is not None:
+                    print(text, file=self.log_file, flush=True)
                 continue
             return payload
 
@@ -375,6 +378,7 @@ def main() -> int:
     parser.add_argument("--call", action="append", default=[], metavar="METHOD", help="rpc.exports method")
     parser.add_argument("--args", action="append", default=[], metavar="JSON", help="JSON array for the matching --call")
     parser.add_argument("--list", action="store_true", help="list registered processes")
+    parser.add_argument("-o", "--log-file", default="", metavar="FILE", help="also write console logs to FILE")
     parser.add_argument("target", nargs="?", default="", help="attach by process name when -f/-n/-p are omitted")
     args = parser.parse_args()
 
@@ -403,8 +407,10 @@ def main() -> int:
     while len(arglists) < len(args.call):
         arglists.append("[]")
 
+    log_fh = open(args.log_file, "w", encoding="utf-8") if args.log_file else None
     print(f"connect {host}:{port} {'spawn' if spawn else 'attach'} {target}", file=sys.stderr)
-    client = Vfrida(host, port, timeout=45 if spawn else 15, target=target, spawn=spawn)
+    client = Vfrida(host, port, timeout=45 if spawn else 15, target=target, spawn=spawn,
+                    log_file=log_fh)
     try:
         if js:
             client.eval(js)
@@ -428,6 +434,8 @@ def main() -> int:
             return 0
     finally:
         client.close()
+        if log_fh is not None:
+            log_fh.close()
     return 0
 
 
