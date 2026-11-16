@@ -55,6 +55,10 @@ java_major() {
 
 jdk_candidates=(
   "${JAVA_HOME:-}"
+  /usr/lib/jvm/java-21-openjdk-amd64
+  /usr/lib/jvm/java-21-openjdk
+  "$HOME"/tools/jdk-21*
+  "$HOME"/.jdks/*
   /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
   /usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
   "/Applications/Android Studio.app/Contents/jbr/Contents/Home"
@@ -62,6 +66,7 @@ jdk_candidates=(
 
 for candidate in "${jdk_candidates[@]}"; do
   [ -n "$candidate" ] && [ -x "$candidate/bin/java" ] || continue
+  [ -x "$candidate/bin/javac" ] || continue
   major="$(java_major "$candidate")"
   if [ -n "$major" ] && [ "$major" -ge "$MIN_JAVA" ]; then
     export JAVA_HOME="$candidate"
@@ -80,11 +85,8 @@ if [ -z "$major" ] || [ "$major" -lt "$MIN_JAVA" ]; then
 fi
 
 echo "JAVA_HOME=$JAVA_HOME"
-if [ ${#GRADLE_ARGS[@]} -gt 0 ]; then
-  ./gradlew installDebug "${GRADLE_ARGS[@]}"
-else
-  ./gradlew installDebug
-fi
+GRADLE_ARGS+=("-Dorg.gradle.java.home=$JAVA_HOME")
+./gradlew installDebug "${GRADLE_ARGS[@]}"
 
 adb_cmd() {
   if [ -n "${ANDROID_SERIAL:-}" ]; then
