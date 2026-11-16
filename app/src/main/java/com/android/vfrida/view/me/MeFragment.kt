@@ -50,7 +50,7 @@ class MeFragment : Fragment() {
         binding.fakeLocationRow.setOnClickListener {
             startActivity(Intent(requireContext(), FakeManagerActivity::class.java).putExtra("userID", 0))
         }
-        binding.openSourceRow.setOnClickListener { openLink("https://github.com/openbba0/bba") }
+        binding.openSourceRow.setOnClickListener { openLink("https://github.com/vFrida/vFrida") }
     }
 
     override fun onResume() {

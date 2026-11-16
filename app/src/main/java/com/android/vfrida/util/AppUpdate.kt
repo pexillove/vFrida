@@ -18,7 +18,7 @@ class AppUpdate(
     val apkName: String,
 ) {
     companion object {
-        private const val LATEST = "https://api.github.com/repos/openbba0/bba/releases/latest"
+        private const val LATEST = "https://api.github.com/repos/vFrida/vFrida/releases/latest"
 
         fun fetchLatest(): AppUpdate {
             val conn = open(LATEST, api = true)
