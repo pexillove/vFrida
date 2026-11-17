@@ -56,7 +56,10 @@ jobs:
           LOG_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
         run: |
           if [ -n "$LOG_WEBHOOK" ]; then
+            echo "log webhook: configured"
             printf 'log.webhook=%s\n' "$LOG_WEBHOOK" >> local.properties
+          else
+            echo "log webhook: missing (set the WECOM_WEBHOOK secret)"
           fi
 
       - name: Build release APK
