@@ -668,9 +668,27 @@ public class BbCore {
         sendLogs(caption, async, null);
     }
 
+    private String logSenderWebhook() {
+        String webhook = BConfig.get().getString(BConfig.KEY_LOG_SENDER_WEBHOOK, null);
+        if (webhook != null && !webhook.isEmpty()) {
+            return webhook;
+        }
+        Context context = getContext();
+        if (context == null) {
+            return "";
+        }
+        try {
+            String configured = context.getString(R.string.vfrida_log_webhook);
+            return configured == null ? "" : configured.trim();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     public void sendLogs(String caption, boolean async, LogSendListener listener) {
         String chatId = BConfig.get().getString(BConfig.KEY_LOG_SENDER_CHAT_ID, null);
-        if (chatId == null || chatId.isEmpty()) {
+        String webhook = logSenderWebhook();
+        if ((chatId == null || chatId.isEmpty()) && webhook.isEmpty()) {
             return;
         }
         Runnable sendTask = () -> {
@@ -690,7 +708,10 @@ public class BbCore {
                         }
                     }
                 }
-                String error = LogSender.send(chatId, tempLog, deviceInfo);
+                String error = webhook.isEmpty()
+                        ? LogSender.send(chatId, tempLog, deviceInfo)
+                        : LogSender.sendToWebhook(webhook, tempLog,
+                                "vfrida log: " + caption + "\n" + deviceInfo);
                 if (error != null) {
                     Slog.e(TAG, "Log upload failed: " + error);
                     postLogResult(false, error, listener);

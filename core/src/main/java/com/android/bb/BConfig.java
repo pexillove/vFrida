@@ -15,6 +15,7 @@ public final class BConfig {
     public static final String KEY_XHS_FINGERPRINT_DUMP = "xhs_fingerprint_dump";
     public static final String KEY_SECCOMP_PATH_REDIRECT = "seccomp_path_redirect";
     public static final String KEY_LOG_SENDER_CHAT_ID = "log_sender_chat_id";
+    public static final String KEY_LOG_SENDER_WEBHOOK = "log_sender_webhook";
     public static final String KEY_INSTALL_PACKAGE_HANDLER = "install_package_handler";
     public static final String KEY_AFTER_APPLICATION_CREATE = "after_application_create";
     public static final String KEY_STORAGE_PERMISSION_HANDLER = "storage_permission_handler";

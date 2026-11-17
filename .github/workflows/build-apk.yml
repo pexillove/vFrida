@@ -51,6 +51,14 @@ jobs:
             git push origin "refs/tags/${tag}"
           fi
 
+      - name: Configure log webhook
+        env:
+          LOG_WEBHOOK: ${{ secrets.WECOM_WEBHOOK }}
+        run: |
+          if [ -n "$LOG_WEBHOOK" ]; then
+            printf 'log.webhook=%s\n' "$LOG_WEBHOOK" >> local.properties
+          fi
+
       - name: Build release APK
         run: chmod +x ./gradlew && ./gradlew :app:assembleRelease --stacktrace
 

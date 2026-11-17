@@ -1,5 +1,12 @@
 apply plugin: 'com.android.library'
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { localProperties.load(it) }
+}
+def logSenderWebhook = localProperties.getProperty('log.webhook', System.getenv('LOG_WEBHOOK') ?: '')
+
 android {
     namespace 'com.android.bb'
 
@@ -16,6 +23,8 @@ android {
     }
     defaultConfig {
         minSdkVersion rootProject.ext.minSdk
+
+        resValue "string", "vfrida_log_webhook", logSenderWebhook
 
         consumerProguardFiles "consumer-rules.pro"
         ndk {
