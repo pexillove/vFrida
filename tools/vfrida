@@ -321,13 +321,19 @@ def swipe_up(serial: str) -> None:
 
 
 def wake_device(serial: str) -> None:
-    """Turn the screen on, then swipe up. input keyevent needs INJECT_EVENTS, which this shell may not have."""
+    """Turn the screen on, then swipe up. Not every build has the same wake command."""
     print("wake", file=sys.stderr)
     woke = subprocess.run(
         [adb_bin(), "-s", serial, "shell", "cmd", "power", "wakeup"],
         capture_output=True,
         text=True,
     )
+    if woke.returncode != 0:
+        woke = subprocess.run(
+            [adb_bin(), "-s", serial, "shell", "input", "keyevent", "KEYCODE_WAKEUP"],
+            capture_output=True,
+            text=True,
+        )
     if woke.returncode != 0:
         err = (woke.stderr or woke.stdout).strip()
         raise SystemExit(err or "failed to wake device")
